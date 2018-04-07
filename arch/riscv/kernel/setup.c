@@ -39,6 +39,8 @@
 #include <asm/tlbflush.h>
 #include <asm/thread_info.h>
 
+static char default_command_line[COMMAND_LINE_SIZE] __initdata = CONFIG_CMDLINE;
+
 #ifdef CONFIG_EARLY_PRINTK
 static void sbi_console_write(struct console *co, const char *buf,
 			      unsigned int n)
@@ -225,7 +227,12 @@ void __init setup_arch(char **cmdline_p)
                register_console(early_console);
        }
 #endif
+
+#if defined(CONFIG_CMDLINE_OVERRIDE)
+	*cmdline_p = default_command_line;
+#else
 	*cmdline_p = boot_command_line;
+#endif
 
 	parse_early_param();
 
