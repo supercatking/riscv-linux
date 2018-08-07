@@ -1,0 +1,5 @@
+config OPENDLA
+	bool
+	depends on DRM
+	default y
+	select DRM_GEM_CMA_HELPER
