@@ -115,7 +115,7 @@
 #define SIFIVE_SERIAL_NAME			"sifive-serial"
 
 /* SIFIVE_TTY_PREFIX: tty name prefix for SiFive serial ports */
-#define SIFIVE_TTY_PREFIX			"ttySI"
+#define SIFIVE_TTY_PREFIX			"ttySIF"
 
 /*
  *
@@ -875,7 +875,7 @@ static const struct uart_ops sifive_serial_uops = {
 static struct uart_driver sifive_serial_uart_driver = {
 	.owner		= THIS_MODULE,
 	.driver_name	= SIFIVE_SERIAL_NAME,
-	.dev_name	= "ttySI",
+	.dev_name	= SIFIVE_TTY_PREFIX,
 	.nr		= SIFIVE_SERIAL_MAX_PORTS,
 	.cons		= SIFIVE_SERIAL_CONSOLE,
 };
