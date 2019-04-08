@@ -144,9 +144,11 @@
 		ranges;
 		plic0: interrupt-controller@c000000 {
 			#interrupt-cells = <1>;
-			compatible = "sifive,plic-1.0.0";
+			compatible = "riscv,plic0", "sifive,plic-1.0.0";
 			reg = <0x0 0xc000000 0x0 0x4000000>;
 			interrupt-controller;
+			riscv,max-priority = <7>;
+			riscv,ndev = <53>;
 			interrupts-extended = <
 				&cpu0_intc 11
 				&cpu1_intc 11 &cpu1_intc 9
@@ -161,14 +163,14 @@
 			#clock-cells = <1>;
 		};
 		uart0: serial@10010000 {
-			compatible = "sifive,fu540-c000-uart", "sifive,uart0";
+			compatible =  "sifive,uart0", "sifive,fu540-c000-uart";
 			reg = <0x0 0x10010000 0x0 0x1000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <4>;
 			clocks = <&prci PRCI_CLK_TLCLK>;
 		};
 		uart1: serial@10011000 {
-			compatible = "sifive,fu540-c000-uart", "sifive,uart0";
+			compatible = "sifive,uart0", "sifive,fu540-c000-uart";
 			reg = <0x0 0x10011000 0x0 0x1000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <5>;
@@ -203,5 +205,15 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
+		L5: clint@2000000 {
+                        compatible = "riscv,clint0";
+                        interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7
+					       &cpu1_intc 3 &cpu1_intc 7
+					       &cpu2_intc 3 &cpu2_intc 7
+					       &cpu3_intc 3 &cpu3_intc 7
+					       &cpu4_intc 3 &cpu4_intc 7>;
+                        reg = <0x0 0x2000000 0x0 0x10000>;
+                        reg-names = "control";
+                };
 	};
 };
