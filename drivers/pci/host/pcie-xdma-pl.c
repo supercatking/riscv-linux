@@ -672,7 +672,7 @@ static int xilinx_pcie_parse_dt(struct xilinx_pcie_port *port)
 		err = devm_request_irq(dev, port->irq_misc,
 				       xilinx_pcie_intr_handler,
 				       IRQF_SHARED | IRQF_NO_THREAD,
-				       "xilinx-pcie", port);
+				       "xilinx-pcie-xdma", port);
 		if (err) {
 			dev_err(dev, "unable to request misc IRQ line %d\n",
 				port->irq);
@@ -708,7 +708,7 @@ static int xilinx_pcie_parse_dt(struct xilinx_pcie_port *port)
 
 		err = devm_request_irq(dev, port->irq, xilinx_pcie_intr_handler,
 				       IRQF_SHARED | IRQF_NO_THREAD,
-				       "xilinx-pcie", port);
+				       "xilinx-pcie-xdma", port);
 		if (err) {
 			dev_err(dev, "unable to request irq %d\n", port->irq);
 			return err;
@@ -800,7 +800,7 @@ static const struct of_device_id xilinx_pcie_of_match[] = {
 
 static struct platform_driver xilinx_pcie_driver = {
 	.driver = {
-		.name = "xilinx-pcie",
+		.name = "xilinx-pcie-xdma",
 		.of_match_table = xilinx_pcie_of_match,
 		.suppress_bind_attrs = true,
 	},
