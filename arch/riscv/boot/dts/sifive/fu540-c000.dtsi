@@ -204,5 +204,15 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 		};
+		L5: clint@2000000 {
+                        compatible = "riscv,clint0";
+                        interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7
+					       &cpu1_intc 3 &cpu1_intc 7
+					       &cpu2_intc 3 &cpu2_intc 7
+					       &cpu3_intc 3 &cpu3_intc 7
+					       &cpu4_intc 3 &cpu4_intc 7>;
+                        reg = <0x0 0x2000000 0x0 0x10000>;
+                        reg-names = "control";
+                };
 	};
 };
