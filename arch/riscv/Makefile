@@ -94,3 +94,11 @@ Image.%: Image
 
 zinstall install:
 	$(Q)$(MAKE) $(build)=$(boot) $@
+
+vmlinux.bbl: vmlinux dtbs
+	if [ -z "$(RISCV_PK_PATH)" ]; then echo RISCV_PK_PATH must be set; exit 254; fi
+	if [ -z "$(RISCV_PK_CONFIG_METHOD)" ]; then echo RISCV_PK_CONFIG_METHOD must be set; exit 254; fi
+	if [ -z "$(RISCV_PK_DTB)" ]; then echo RISCV_PK_DTB must be set; exit 253; fi
+	scripts/riscv-combine-kernel-and-bbl.sh $(abs_objtree) $(RISCV_PK_PATH) $(RISCV_PK_CONFIG_METHOD) $(RISCV_PK_DTB)
+
+CLEAN_FILES += vmlinux.bbl
