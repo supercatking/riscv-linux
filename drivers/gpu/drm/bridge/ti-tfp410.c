@@ -1,11 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2016 Texas Instruments
  * Author: Jyri Sarha <jsarha@ti.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published by
- * the Free Software Foundation.
- *
  */
 
 #include <linux/delay.h>
@@ -376,7 +372,8 @@ static int tfp410_fini(struct device *dev)
 {
 	struct tfp410 *dvi = dev_get_drvdata(dev);
 
-	cancel_delayed_work_sync(&dvi->hpd_work);
+	if (dvi->hpd_irq >= 0)
+		cancel_delayed_work_sync(&dvi->hpd_work);
 
 	drm_bridge_remove(&dvi->bridge);
 

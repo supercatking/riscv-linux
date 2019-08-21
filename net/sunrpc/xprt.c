@@ -1013,6 +1013,8 @@ xprt_request_enqueue_receive(struct rpc_task *task)
 
 	if (!xprt_request_need_enqueue_receive(task, req))
 		return;
+
+	xprt_request_prepare(task->tk_rqstp);
 	spin_lock(&xprt->queue_lock);
 
 	/* Update the softirq receive buffer */
@@ -1876,9 +1878,7 @@ found:
 		xprt->idle_timeout = 0;
 	INIT_WORK(&xprt->task_cleanup, xprt_autoclose);
 	if (xprt_has_timer(xprt))
-		timer_setup(&xprt->timer,
-				xprt_init_autodisconnect,
-				TIMER_DEFERRABLE);
+		timer_setup(&xprt->timer, xprt_init_autodisconnect, 0);
 	else
 		timer_setup(&xprt->timer, NULL, 0);
 

@@ -252,7 +252,7 @@ smb2_reconnect(__le16 smb2_command, struct cifs_tcon *tcon)
 	if (tcon == NULL)
 		return 0;
 
-	if (smb2_command == SMB2_TREE_CONNECT)
+	if (smb2_command == SMB2_TREE_CONNECT || smb2_command == SMB2_IOCTL)
 		return 0;
 
 	if (tcon->tidStatus == CifsExiting) {
@@ -1173,7 +1173,12 @@ SMB2_sess_alloc_buffer(struct SMB2_sess_data *sess_data)
 	else
 		req->SecurityMode = 0;
 
+#ifdef CONFIG_CIFS_DFS_UPCALL
+	req->Capabilities = cpu_to_le32(SMB2_GLOBAL_CAP_DFS);
+#else
 	req->Capabilities = 0;
+#endif /* DFS_UPCALL */
+
 	req->Channel = 0; /* MBZ */
 
 	sess_data->iov[0].iov_base = (char *)req;
@@ -3114,9 +3119,14 @@ void smb2_reconnect_server(struct work_struct *work)
 				tcon_exist = true;
 			}
 		}
+		/*
+		 * IPC has the same lifetime as its session and uses its
+		 * refcount.
+		 */
 		if (ses->tcon_ipc && ses->tcon_ipc->need_reconnect) {
 			list_add_tail(&ses->tcon_ipc->rlist, &tmp_list);
 			tcon_exist = true;
+			ses->ses_count++;
 		}
 	}
 	/*
@@ -3135,7 +3145,10 @@ void smb2_reconnect_server(struct work_struct *work)
 		else
 			resched = true;
 		list_del_init(&tcon->rlist);
-		cifs_put_tcon(tcon);
+		if (tcon->ipc)
+			cifs_put_smb_ses(tcon->ses);
+		else
+			cifs_put_tcon(tcon);
 	}
 
 	cifs_dbg(FYI, "Reconnecting tcons finished\n");
