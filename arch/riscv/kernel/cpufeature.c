@@ -30,6 +30,11 @@ static DECLARE_BITMAP(riscv_isa, RISCV_ISA_EXT_MAX) __read_mostly;
 
 DEFINE_STATIC_KEY_ARRAY_FALSE(riscv_isa_ext_keys, RISCV_ISA_EXT_KEY_MAX);
 EXPORT_SYMBOL(riscv_isa_ext_keys);
+#ifdef CONFIG_VECTOR
+#include <asm/vector.h>
+__ro_after_init DEFINE_STATIC_KEY_FALSE(cpu_hwcap_vector);
+unsigned long riscv_vsize __read_mostly;
+#endif
 
 /**
  * riscv_isa_extension_base() - Get base extension word
@@ -83,7 +88,9 @@ void __init riscv_fill_hwcap(void)
 	isa2hwcap['f'] = isa2hwcap['F'] = COMPAT_HWCAP_ISA_F;
 	isa2hwcap['d'] = isa2hwcap['D'] = COMPAT_HWCAP_ISA_D;
 	isa2hwcap['c'] = isa2hwcap['C'] = COMPAT_HWCAP_ISA_C;
+#ifdef CONFIG_VECTOR
 	isa2hwcap['v'] = isa2hwcap['V'] = COMPAT_HWCAP_ISA_V;
+#endif
 
 	elf_hwcap = 0;
 
@@ -231,6 +238,23 @@ void __init riscv_fill_hwcap(void)
 	if ((elf_hwcap & COMPAT_HWCAP_ISA_F) && !(elf_hwcap & COMPAT_HWCAP_ISA_D)) {
 		pr_info("This kernel does not support systems with F but not D\n");
 		elf_hwcap &= ~COMPAT_HWCAP_ISA_F;
+	}
+
+	if (elf_hwcap & COMPAT_HWCAP_ISA_V) {
+#ifdef CONFIG_VECTOR
+		static_branch_enable(&cpu_hwcap_vector);
+		/* There are 32 vector registers with vlenb length. */
+		rvv_enable();
+		riscv_vsize = csr_read(CSR_VLENB) * 32;
+		rvv_disable();
+#else
+		/*
+		 * ISA string in device tree might have 'v' flag, but CONFIG_VECTOR
+		 * is disabled in kernel.
+		 * Clear V flag in elf_hwcap if CONFIG_VECTOR is disabled.
+		 */
+		elf_hwcap &= ~COMPAT_HWCAP_ISA_V;
+#endif
 	}
 
 	memset(print_str, 0, sizeof(print_str));
