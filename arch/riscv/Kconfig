@@ -438,6 +438,27 @@ config RISCV_ISA_ZICBOM
 
 	   If you don't know what to do here, say Y.
 
+config RISCV_ISA_V
+	bool "VECTOR extension support"
+	depends on GCC_VERSION >= 120000 || CLANG_VERSION >= 130000
+	default n
+	help
+	  Say N here if you want to disable all vector related procedure
+	  in the kernel.
+
+	  If you don't know what to do here, say Y.
+
+config RISCV_VSTATE_INIT_ALL
+	bool "Enable system-wide VECTOR support for all processes"
+	depends on RISCV_ISA_V
+	default n
+	help
+	  Say Y here if you have VECTOR optimized userspace libraries. For
+	  example, glibc with VECTOR optmized memcpy ifunc. Say N if you would
+	  like to depend on prctl to enable per-process VECTOR state.
+
+	  IF you don't know what to do here, say Y.
+
 config FPU
 	bool "FPU support"
 	default y
