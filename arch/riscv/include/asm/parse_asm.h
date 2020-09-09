@@ -104,6 +104,24 @@
 #define OPCODE_JALR		0x67
 #define OPCODE_JAL		0x6f
 #define OPCODE_SYSTEM		0x73
+#define SYSTEM_CSR_OFF		20
+#define SYSTEM_CSR_MASK		GENMASK(12, 0)
+
+/* parts of opcode for RVV */
+#define OPCODE_VECTOR		0x57
+#define LSFP_WIDTH_RVV_8	0
+#define LSFP_WIDTH_RVV_16	5
+#define LSFP_WIDTH_RVV_32	6
+#define LSFP_WIDTH_RVV_64	7
+
+/* parts of opcode for RVF, RVD and RVQ */
+#define LSFP_WIDTH_OFF	12
+#define LSFP_WIDTH_MASK	GENMASK(3, 0)
+#define LSFP_WIDTH_FP_W		2
+#define LSFP_WIDTH_FP_D		3
+#define LSFP_WIDTH_FP_Q		4
+#define OPCODE_LOADFP		0x07
+#define OPCODE_STOREFP		0x27
 
 /* parts of opcode for RVC*/
 #define OPCODE_C_0		0x0
@@ -217,3 +235,10 @@ static inline bool is_ ## INSN_NAME ## _insn(long insn) \
 	(RVC_X(x_, RVC_B_IMM_5_OPOFF, RVC_B_IMM_5_MASK) << RVC_B_IMM_5_OFF) | \
 	(RVC_X(x_, RVC_B_IMM_7_6_OPOFF, RVC_B_IMM_7_6_MASK) << RVC_B_IMM_7_6_OFF) | \
 	(RVC_IMM_SIGN(x_) << RVC_B_IMM_SIGN_OFF); })
+
+#define EXTRACT_LOAD_STORE_FP_WIDTH(x) \
+	({typeof(x) x_ = (x); RV_X(x_, LSFP_WIDTH_OFF, LSFP_WIDTH_MASK);})
+
+#define EXTRACT_SYSTEM_CSR(x) \
+	({typeof(x) x_ = (x); RV_X(x_, SYSTEM_CSR_OFF, SYSTEM_CSR_MASK);})
+
