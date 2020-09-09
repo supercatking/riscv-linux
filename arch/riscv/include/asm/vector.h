@@ -6,13 +6,35 @@
 #ifndef __ASM_RISCV_VECTOR_H
 #define __ASM_RISCV_VECTOR_H
 
+#include <linux/types.h>
+
 #ifdef CONFIG_RISCV_ISA_V
 
-#include <linux/types.h>
+#include <linux/sched.h>
+#include <asm/ptrace.h>
 #include <asm/csr.h>
 
 #define CSR_STR_VAL(x)	#x
 #define CSR_STR(x)	CSR_STR_VAL(x)
+
+extern struct static_key_false cpu_hwcap_vector;
+extern unsigned long riscv_vsize;
+
+static __always_inline bool has_vector(void)
+{
+	return static_branch_likely(&cpu_hwcap_vector);
+}
+
+static inline void __vstate_clean(struct pt_regs *regs)
+{
+	regs->status = (regs->status & ~(SR_VS)) | SR_VS_CLEAN;
+}
+
+static inline void vstate_off(struct task_struct *task,
+			      struct pt_regs *regs)
+{
+	regs->status = (regs->status & ~SR_VS) | SR_VS_OFF;
+}
 
 static __always_inline void rvv_enable(void)
 {
@@ -84,6 +106,33 @@ static inline void __vstate_restore(struct __riscv_v_state *restore_from,
 	rvv_disable();
 }
 
-#endif /* CONFIG_RISCV_ISA_V  */
+static inline void vstate_save(struct task_struct *task,
+			       struct pt_regs *regs)
+{
+	if ((regs->status & SR_VS) == SR_VS_DIRTY) {
+		struct __riscv_v_state *vstate = &task->thread.vstate;
+
+		__vstate_save(vstate, vstate->datap);
+		__vstate_clean(regs);
+	}
+}
+
+static inline void vstate_restore(struct task_struct *task,
+				  struct pt_regs *regs)
+{
+	if ((regs->status & SR_VS) != SR_VS_OFF) {
+		struct __riscv_v_state *vstate = &task->thread.vstate;
+
+		__vstate_restore(vstate, vstate->datap);
+		__vstate_clean(regs);
+	}
+}
+
+#else /* ! CONFIG_RISCV_ISA_V  */
+
+static __always_inline bool has_vector(void) { return false; }
+#define riscv_vsize (0)
+
+#endif /* CONFIG_RISCV_ISA_V */
 
 #endif /* ! __ASM_RISCV_VECTOR_H */
