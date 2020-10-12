@@ -8,6 +8,10 @@
 #include <linux/init.h>
 #include <uapi/linux/const.h>
 
+#if defined(CONFIG_RISCV)
+#include <asm/sbi.h>
+#endif
+
 /*
  * This file provides common defines for ARM SMC Calling Convention as
  * specified in
@@ -117,6 +121,7 @@ enum arm_smccc_conduit {
 	SMCCC_CONDUIT_NONE,
 	SMCCC_CONDUIT_SMC,
 	SMCCC_CONDUIT_HVC,
+	SMCCC_CONDUIT_RISCV_SBI,
 };
 
 /**
@@ -219,6 +224,8 @@ asmlinkage void __arm_smccc_hvc(unsigned long a0, unsigned long a1,
 
 #define SMCCC_SMC_INST	__SMC(0)
 #define SMCCC_HVC_INST	__HVC(0)
+
+#elif defined(CONFIG_RISCV)
 
 #endif
 
@@ -394,6 +401,9 @@ asmlinkage void __arm_smccc_hvc(unsigned long a0, unsigned long a1,
 			break;						\
 		case SMCCC_CONDUIT_SMC:					\
 			arm_smccc_1_1_smc(__VA_ARGS__);			\
+			break;						\
+		case SMCCC_CONDUIT_RISCV:				\
+			riscv_smccc_1_1_sbi(__VA_ARGS__);		\
 			break;						\
 		default:						\
 			__fail_smccc_1_1(__VA_ARGS__);			\

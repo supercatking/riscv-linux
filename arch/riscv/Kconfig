@@ -198,6 +198,9 @@ config ARCH_SUSPEND_POSSIBLE
 config CPU_IDLE
 	def_bool y
 
+config ARM_PSCI_FW
+        def_bool y
+
 source "arch/riscv/Kconfig.socs"
 
 menu "Platform type"

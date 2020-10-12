@@ -22,10 +22,16 @@
 #include <uapi/linux/psci.h>
 
 #include <asm/cpuidle.h>
+#if IS_ENABLED(CONFIG_ARM64) || IS_ENABLED(CONFIG_ARM)
 #include <asm/cputype.h>
 #include <asm/system_misc.h>
 #include <asm/smp_plat.h>
 #include <asm/suspend.h>
+#endif
+
+#if IS_ENABLED(CONFIG_RISCV)
+#include <asm/sbi.h>
+#endif
 
 /*
  * While a 64-bit OS can make calls with SMC32 calling conventions, for some
@@ -109,6 +115,7 @@ bool psci_power_state_is_valid(u32 state)
 	return !(state & ~valid_mask);
 }
 
+#if IS_ENABLED(CONFIG_ARM) || IS_ENABLED(CONFIG_ARM64)
 static unsigned long __invoke_psci_fn_hvc(unsigned long function_id,
 			unsigned long arg0, unsigned long arg1,
 			unsigned long arg2)
@@ -127,6 +134,31 @@ static unsigned long __invoke_psci_fn_smc(unsigned long function_id,
 
 	arm_smccc_smc(function_id, arg0, arg1, arg2, 0, 0, 0, 0, &res);
 	return res.a0;
+}
+
+#else
+
+static unsigned long __invoke_psci_fn_hvc(unsigned long function_id,
+			unsigned long arg0, unsigned long arg1,
+			unsigned long arg2)
+{
+	return 0; /* XXX */
+}
+
+static unsigned long __invoke_psci_fn_smc(unsigned long function_id,
+			unsigned long arg0, unsigned long arg1,
+			unsigned long arg2)
+{
+	return 0; /* XXX */
+}
+
+#endif
+
+static unsigned long __invoke_psci_fn_sbi(unsigned long function_id,
+			unsigned long arg0, unsigned long arg1,
+			unsigned long arg2)
+{
+	return sbi_psci(function_id, arg0, arg1, arg2);
 }
 
 static int psci_to_linux_errno(int errno)
@@ -227,6 +259,9 @@ static void set_conduit(enum arm_smccc_conduit conduit)
 	case SMCCC_CONDUIT_SMC:
 		invoke_psci_fn = __invoke_psci_fn_smc;
 		break;
+	case SMCCC_CONDUIT_RISCV_SBI:
+		invoke_psci_fn = __invoke_psci_fn_sbi;
+		break;
 	default:
 		WARN(1, "Unexpected PSCI conduit %d\n", conduit);
 	}
@@ -249,6 +284,8 @@ static int get_set_conduit_method(struct device_node *np)
 		set_conduit(SMCCC_CONDUIT_HVC);
 	} else if (!strcmp("smc", method)) {
 		set_conduit(SMCCC_CONDUIT_SMC);
+	} else if (!strcmp("sbi", method)) {
+		set_conduit(SMCCC_CONDUIT_RISCV_SBI);
 	} else {
 		pr_warn("invalid \"method\" property: %s\n", method);
 		return -EINVAL;
@@ -392,6 +429,7 @@ static void __init psci_init_migrate(void)
 
 static void __init psci_init_smccc(void)
 {
+#if IS_ENABLED(CONFIG_ARM) || IS_ENABLED(CONFIG_ARM64)
 	u32 ver = ARM_SMCCC_VERSION_1_0;
 	int feature;
 
@@ -412,7 +450,7 @@ static void __init psci_init_smccc(void)
 	 */
 	pr_info("SMC Calling Convention v%d.%d\n",
 		PSCI_VERSION_MAJOR(ver), PSCI_VERSION_MINOR(ver));
-
+#endif
 }
 
 static void __init psci_0_2_set_functions(void)
