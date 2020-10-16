@@ -192,6 +192,12 @@ config PGTABLE_LEVELS
 config LOCKDEP_SUPPORT
 	def_bool y
 
+config ARCH_SUSPEND_POSSIBLE
+	def_bool y
+
+config CPU_IDLE
+	def_bool y
+
 source "arch/riscv/Kconfig.socs"
 
 menu "Platform type"
