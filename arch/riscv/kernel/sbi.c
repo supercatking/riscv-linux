@@ -556,6 +556,24 @@ static void sbi_send_cpumask_ipi(const struct cpumask *target)
 	sbi_send_ipi(cpumask_bits(&hartid_mask));
 }
 
+/**
+ * sbi_psci() - Execute a PSCI call through the PSCI gateway extension
+ * 
+ *
+ * Return: None
+ */
+long sbi_psci(unsigned long function_id, unsigned long arg0, unsigned long arg1,
+	      unsigned long arg2)
+{
+	struct sbiret r;
+
+	r = sbi_ecall(SBI_EXT_PSCI_GATEWAY, 0, function_id, arg0, arg1, arg2,
+		      0, 0);
+
+	return r.error;
+}
+EXPORT_SYMBOL(sbi_psci);
+
 static struct riscv_ipi_ops sbi_ipi_ops = {
 	.ipi_inject = sbi_send_cpumask_ipi
 };

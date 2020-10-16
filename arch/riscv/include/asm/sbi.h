@@ -27,6 +27,7 @@ enum sbi_ext_id {
 	SBI_EXT_IPI = 0x735049,
 	SBI_EXT_RFENCE = 0x52464E43,
 	SBI_EXT_HSM = 0x48534D,
+	SBI_EXT_PSCI = 0x4C4547,
 };
 
 enum sbi_ext_base_fid {
@@ -68,6 +69,10 @@ enum sbi_hsm_hart_status {
 	SBI_HSM_HART_STATUS_STOPPED,
 	SBI_HSM_HART_STATUS_START_PENDING,
 	SBI_HSM_HART_STATUS_STOP_PENDING,
+};
+
+enum sbi_ext_psci {
+	SBI_EXT_PSCI_GATEWAY = 0,
 };
 
 #define SBI_SPEC_VERSION_DEFAULT	0x1
@@ -125,6 +130,8 @@ int sbi_remote_hfence_vvma_asid(const unsigned long *hart_mask,
 				unsigned long size,
 				unsigned long asid);
 int sbi_probe_extension(int ext);
+long sbi_psci(unsigned long function_id, unsigned long arg0, unsigned long arg1,
+	      unsigned long arg2);
 
 /* Check if current SBI specification version is 0.1 or not */
 static inline int sbi_spec_is_0_1(void)
@@ -152,6 +159,8 @@ void sbi_set_timer(uint64_t stime_value);
 void sbi_clear_ipi(void);
 void sbi_send_ipi(const unsigned long *hart_mask);
 void sbi_remote_fence_i(const unsigned long *hart_mask);
+long sbi_psci(unsigned long function_id, unsigned long arg0, unsigned long arg1,
+	      unsigned long arg2);
 void sbi_init(void);
 #endif /* CONFIG_RISCV_SBI */
 #endif /* _ASM_RISCV_SBI_H */
