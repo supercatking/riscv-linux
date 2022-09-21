@@ -15,6 +15,7 @@
 #include <linux/tick.h>
 #include <linux/ptrace.h>
 #include <linux/uaccess.h>
+#include <linux/prctl.h>
 
 #include <asm/unistd.h>
 #include <asm/processor.h>
@@ -137,7 +138,11 @@ void start_thread(struct pt_regs *regs, unsigned long pc,
 				return;
 			}
 		}
+#ifdef CONFIG_RISCV_VSTATE_INIT_ALL
 		regs->status |= SR_VS_INITIAL;
+#else
+		vstate_off(current, regs);
+#endif
 
 		/*
 		 * Restore the initial value to the vector register
@@ -235,3 +240,22 @@ int copy_thread(struct task_struct *p, const struct kernel_clone_args *args)
 	p->thread.sp = (unsigned long)childregs; /* kernel sp */
 	return 0;
 }
+
+#ifdef CONFIG_RISCV_ISA_V
+int rvv_proc_enable(unsigned long x)
+{
+	switch (x) {
+	case PR_RVV_DISABLE:
+		vstate_off(current, task_pt_regs(current));
+		return 0;
+	case PR_RVV_ENABLE:
+		vstate_on(current, task_pt_regs(current));
+		return 0;
+	case PR_RVV_QUERY:
+		return vstate_query(task_pt_regs(current));
+	default:
+		return -(EINVAL);
+
+	}
+}
+#endif
