@@ -281,6 +281,12 @@ struct prctl_mm_map {
 # define PR_SME_VL_LEN_MASK		0xffff
 # define PR_SME_VL_INHERIT		(1 << 17) /* inherit across exec */
 
+/* RISC-V V vector extension */
+#define PR_RVV_STATE			65
+# define PR_RVV_DISABLE			0
+# define PR_RVV_ENABLE			1
+# define PR_RVV_QUERY			2
+
 #define PR_SET_VMA		0x53564d41
 # define PR_SET_VMA_ANON_NAME		0
 

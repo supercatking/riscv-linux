@@ -3,6 +3,7 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/uaccess.h>
+#include <linux/thread_info.h>
 
 #include <asm/thread_info.h>
 #include <asm/processor.h>
@@ -54,8 +55,10 @@ bool rvv_first_use_handler(struct pt_regs *regs)
 	__user u32 *epc = (u32 *) regs->epc;
 	u32 tval = (u32) regs->badaddr;
 
-	/* If V has been enabled then it is not the first-use trap */
-	if (vstate_query(regs))
+	/* If V has been enabled then it is not the first-use trap. Or, if V has
+	 * been explicitly disabled by prctl then we don't handle the trap.
+	 */
+	if (vstate_query(regs) || test_thread_flag(TIF_VS_OFF))
 		return false;
 	/* Get the instruction */
 	if (!tval) {

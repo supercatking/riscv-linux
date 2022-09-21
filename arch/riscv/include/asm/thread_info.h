@@ -82,6 +82,12 @@ struct thread_info {
 void arch_release_task_struct(struct task_struct *tsk);
 int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src);
 
+#ifdef CONFIG_RISCV_ISA_V
+int rvv_thread_zalloc(void);
+#else /* !CONFIG_RISCV_ISA_V */
+/* We don't expect rvv_thread_zalloc if the kernel is compiled without V */
+#endif /* CONFIG_RISCV_ISA_V */
+
 #endif /* !__ASSEMBLY__ */
 
 /*
@@ -103,6 +109,7 @@ int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src);
 #define TIF_NOTIFY_SIGNAL	9	/* signal notifications exist */
 #define TIF_UPROBE		10	/* uprobe breakpoint or singlestep */
 #define TIF_32BIT		11	/* compat-mode 32bit process */
+#define TIF_VS_OFF		31	/* prctl strictly turns off Vector */
 
 #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
 #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
