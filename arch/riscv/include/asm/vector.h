@@ -18,6 +18,9 @@
 
 #define CSR_STR(x) __ASM_STR(x)
 
+void kernel_rvv_begin(void);
+void kernel_rvv_end(void);
+
 extern unsigned long riscv_vsize;
 bool rvv_first_use_handler(struct pt_regs *regs);
 
@@ -110,6 +113,17 @@ static inline void __vstate_restore(struct __riscv_v_state *restore_from,
 		: : "r" (datap) : "t4");
 	__vstate_csr_restore(restore_from);
 	rvv_disable();
+}
+
+static __always_inline void vector_flush_cpu_state(void)
+{
+	asm volatile (
+		"vsetvli	t0, x0, e8, m8, ta, ma\n\t"
+		"vmv.v.i	v0, 0\n\t"
+		"vmv.v.i	v8, 0\n\t"
+		"vmv.v.i	v16, 0\n\t"
+		"vmv.v.i	v24, 0\n\t"
+		: : : "t0");
 }
 
 static inline void vstate_save(struct task_struct *task,
