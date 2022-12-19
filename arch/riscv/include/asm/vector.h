@@ -11,10 +11,21 @@
 #ifdef CONFIG_RISCV_ISA_V
 
 #include <asm/hwcap.h>
+#include <asm/csr.h>
 
 static __always_inline bool has_vector(void)
 {
 	return static_branch_likely(&riscv_isa_ext_keys[RISCV_ISA_EXT_KEY_VECTOR]);
+}
+
+static __always_inline void rvv_enable(void)
+{
+	csr_set(CSR_SSTATUS, SR_VS);
+}
+
+static __always_inline void rvv_disable(void)
+{
+	csr_clear(CSR_SSTATUS, SR_VS);
 }
 
 #else /* ! CONFIG_RISCV_ISA_V  */
