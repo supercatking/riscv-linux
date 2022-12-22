@@ -42,24 +42,12 @@ static long restore_fp_state(struct pt_regs *regs,
 {
 	long err;
 	struct __riscv_d_ext_state __user *state = &sc_fpregs->d;
-	size_t i;
 
 	err = __copy_from_user(&current->thread.fstate, state, sizeof(*state));
 	if (unlikely(err))
 		return err;
 
 	fstate_restore(current, regs);
-
-	/* We support no other extension state at this time. */
-	for (i = 0; i < ARRAY_SIZE(sc_fpregs->q.reserved); i++) {
-		u32 value;
-
-		err = __get_user(value, &sc_fpregs->q.reserved[i]);
-		if (unlikely(err))
-			break;
-		if (value != 0)
-			return -EINVAL;
-	}
 
 	return err;
 }
@@ -69,19 +57,9 @@ static long save_fp_state(struct pt_regs *regs,
 {
 	long err;
 	struct __riscv_d_ext_state __user *state = &sc_fpregs->d;
-	size_t i;
 
 	fstate_save(current, regs);
 	err = __copy_to_user(state, &current->thread.fstate, sizeof(*state));
-	if (unlikely(err))
-		return err;
-
-	/* We support no other extension state at this time. */
-	for (i = 0; i < ARRAY_SIZE(sc_fpregs->q.reserved); i++) {
-		err = __put_user(0, &sc_fpregs->q.reserved[i]);
-		if (unlikely(err))
-			break;
-	}
 
 	return err;
 }
@@ -99,9 +77,13 @@ static long save_v_state(struct pt_regs *regs, void **sc_vec)
 	 * by sc_vec and the datap point the address right
 	 * after __sc_riscv_v_state.
 	 */
-	struct __sc_riscv_v_state __user *state = (struct __sc_riscv_v_state *)(*sc_vec);
+	struct __riscv_ctx_hdr __user *hdr = (struct __riscv_ctx_hdr *)(*sc_vec);
+	struct __sc_riscv_v_state __user *state = (struct __sc_riscv_v_state *)(hdr + 1);
 	void __user *datap = state + 1;
 	long err;
+
+	WARN_ON(!IS_ALIGNED((unsigned long) state, 16));
+	WARN_ON(!IS_ALIGNED((unsigned long) datap, 16));
 
 	vstate_save(current, regs);
 	/* Copy everything of vstate but datap. */
@@ -121,11 +103,15 @@ static long save_v_state(struct pt_regs *regs, void **sc_vec)
 		return err;
 
 	/* Copy magic to the user space after saving  all vector conetext */
-	err = __put_user(RVV_MAGIC, &state->head.magic);
+	err = __put_user(RVV_MAGIC, &hdr->magic);
 	if (unlikely(err))
 		return err;
 
-	err = __put_user(rvv_sc_size, &state->head.size);
+	err = __put_user(rvv_sc_size, &hdr->size);
+	if (unlikely(err))
+		return err;
+
+	err = __put_user(0, &hdr->reserved);
 	if (unlikely(err))
 		return err;
 
@@ -134,22 +120,13 @@ static long save_v_state(struct pt_regs *regs, void **sc_vec)
 	return err;
 }
 
-static long restore_v_state(struct pt_regs *regs, void **sc_vec)
+static long __restore_v_state(struct pt_regs *regs, void *sc_vec)
 {
 	long err;
-	struct __sc_riscv_v_state __user *state = (struct __sc_riscv_v_state *)(*sc_vec);
+	struct __sc_riscv_v_state __user *state = (struct __sc_riscv_v_state *)(sc_vec);
 	void __user *datap;
-	__u32 magic;
-	__u32 size;
 
-	/* Get magic number and check it. */
-	err = __get_user(magic, &state->head.magic);
-	err = __get_user(size, &state->head.size);
-	if (unlikely(err))
-		return err;
-
-	if (magic != RVV_MAGIC || size != rvv_sc_size)
-		return -EINVAL;
+	WARN_ON(!IS_ALIGNED((unsigned long) state, 16));
 
 	/* Copy everything of __sc_riscv_v_state except datap. */
 	err = __copy_from_user(&current->thread.vstate, &state->v_state,
@@ -162,28 +139,34 @@ static long restore_v_state(struct pt_regs *regs, void **sc_vec)
 	if (unlikely(err))
 		return err;
 
-	/* Copy the whole vector content from user space datap. */
-	err = __copy_from_user(current->thread.vstate.datap, datap, riscv_vsize);
+	if(!IS_ALIGNED((unsigned long) datap, 16)) {
+		pr_warn("datap is not align, %lx\n", (unsigned long)datap);
+		err = -EINVAL;
+		return err;
+	}
+
+	/*
+	 * Copy the whole vector content from user space datap. Use
+	 * copy_from_user to prevent information leak.
+	 */
+	err = copy_from_user(current->thread.vstate.datap, datap, riscv_vsize);
 	if (unlikely(err))
 		return err;
 
 	vstate_restore(current, regs);
 
-	/* Move sc_vec to point the next signal context frame. */
-	*sc_vec += size;
-
 	return err;
 }
 #else
 #define save_v_state(task, regs) (0)
-#define restore_v_state(task, regs) (0)
+#define __restore_v_state(task, regs) (0)
 #endif
 
 static long restore_sigcontext(struct pt_regs *regs,
 	struct sigcontext __user *sc)
 {
 	long err;
-	void *sc_reserved_ptr = sc->__reserved;
+	void *sc_ext_ptr = &sc->sc_extdesc.hdr;
 	/* sc_regs is structured the same as the start of pt_regs */
 	err = __copy_from_user(regs, &sc->sc_regs, sizeof(sc->sc_regs));
 	/* Restore the floating-point state. */
@@ -191,14 +174,19 @@ static long restore_sigcontext(struct pt_regs *regs,
 		err |= restore_fp_state(regs, &sc->sc_fpregs);
 
 	while (1 && !err) {
-		__u32 magic, size;
-		struct __riscv_ctx_hdr *head = (struct __riscv_ctx_hdr *)sc_reserved_ptr;
+		__u32 magic, size, rsvd;
+		struct __riscv_ctx_hdr *head = (struct __riscv_ctx_hdr *)sc_ext_ptr;
 
 		err |= __get_user(magic, &head->magic);
 		err |= __get_user(size, &head->size);
+		err |= __get_user(rsvd, &head->reserved);
 		if (err)
 			goto done;
 
+		if (unlikely(rsvd))
+			goto invalid;
+
+		sc_ext_ptr += sizeof(struct __riscv_ctx_hdr);
 		switch (magic) {
 		case 0:
 			if (size)
@@ -209,11 +197,12 @@ static long restore_sigcontext(struct pt_regs *regs,
 				goto invalid;
 			if (size != rvv_sc_size)
 				goto invalid;
-			err |= restore_v_state(regs, &sc_reserved_ptr);
+			err |= __restore_v_state(regs, sc_ext_ptr);
 			break;
 		default:
 			goto invalid;
 		}
+		sc_ext_ptr = ((void *)(head) + size);
 	}
 done:
 	return err;
@@ -227,7 +216,6 @@ static size_t cal_rt_frame_size(void)
 	struct rt_sigframe __user *frame;
 	static size_t frame_size;
 	size_t total_context_size = 0;
-	size_t sc_reserved_size = sizeof(frame->uc.uc_mcontext.__reserved);
 
 	if (frame_size)
 		goto done;
@@ -239,8 +227,7 @@ static size_t cal_rt_frame_size(void)
 	/* Preserved a __riscv_ctx_hdr for END signal context header. */
 	total_context_size += sizeof(struct __riscv_ctx_hdr);
 
-	if (total_context_size > sc_reserved_size)
-		frame_size += (total_context_size - sc_reserved_size);
+	frame_size += (total_context_size);
 
 	frame_size = round_up(frame_size, 16);
 done:
@@ -296,7 +283,7 @@ static long setup_sigcontext(struct rt_sigframe __user *frame,
 {
 	struct sigcontext __user *sc = &frame->uc.uc_mcontext;
 	long err;
-	void *sc_reserved_free_ptr = sc->__reserved;
+	void *sc_ext_ptr = &sc->sc_extdesc.hdr;
 
 	/* sc_regs is structured the same as the start of pt_regs */
 	err = __copy_to_user(&sc->sc_regs, regs, sizeof(sc->sc_regs));
@@ -305,11 +292,12 @@ static long setup_sigcontext(struct rt_sigframe __user *frame,
 		err |= save_fp_state(regs, &sc->sc_fpregs);
 	/* Save the vector state. */
 	if (has_vector())
-		err |= save_v_state(regs, &sc_reserved_free_ptr);
+		err |= save_v_state(regs, &sc_ext_ptr);
 
 	/* Put END __riscv_ctx_hdr at the end. */
-	err = __put_user(END_MAGIC, &((struct __riscv_ctx_hdr *)sc_reserved_free_ptr)->magic);
-	err = __put_user(END_HDR_SIZE, &((struct __riscv_ctx_hdr *)sc_reserved_free_ptr)->size);
+	err = __put_user(END_MAGIC, &((struct __riscv_ctx_hdr *)sc_ext_ptr)->magic);
+	err = __put_user(END_HDR_SIZE, &((struct __riscv_ctx_hdr *)sc_ext_ptr)->size);
+	err = __put_user(0, &((struct __riscv_ctx_hdr *)sc_ext_ptr)->reserved);
 	return err;
 }
 
@@ -502,7 +490,8 @@ asmlinkage __visible void do_work_pending(struct pt_regs *regs,
 void init_rt_signal_env(void);
 void __init init_rt_signal_env(void)
 {
-	rvv_sc_size = sizeof(struct __sc_riscv_v_state) + riscv_vsize;
+	rvv_sc_size = sizeof(struct __riscv_ctx_hdr) +
+		      sizeof(struct __sc_riscv_v_state) + riscv_vsize;
 	/*
 	 * Determine the stack space required for guaranteed signal delivery.
 	 * The signal_minsigstksz will be populated into the AT_MINSIGSTKSZ entry

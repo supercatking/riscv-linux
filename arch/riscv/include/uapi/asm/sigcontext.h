@@ -15,13 +15,8 @@
 /* The size of END signal context header. */
 #define END_HDR_SIZE	0x0
 
-struct __riscv_ctx_hdr {
-	__u32 magic;
-	__u32 size;
-};
 
 struct __sc_riscv_v_state {
-	struct __riscv_ctx_hdr head;
 	struct __riscv_v_state v_state;
 } __attribute__((aligned(16)));
 
@@ -33,16 +28,10 @@ struct __sc_riscv_v_state {
  */
 struct sigcontext {
 	struct user_regs_struct sc_regs;
-	union __riscv_fp_state sc_fpregs;
-	/*
-	 * 4K + 128 reserved for vector state and future expansion.
-	 * This space is enough to store the vector context whose VLENB
-	 * is less or equal to 128.
-	 * (The size of the vector context is 4144 byte as VLENB is 128)
-	 * This is the default size. Larger space should be allocated and
-	 * used on the sigframe as required by the extension.
-	 */
-	__u8 __reserved[4224] __attribute__((__aligned__(16)));
+	union {
+		union __riscv_fp_state sc_fpregs;
+		struct __riscv_extra_ext_header sc_extdesc;
+	};
 };
 
 #endif /* _UAPI_ASM_RISCV_SIGCONTEXT_H */
