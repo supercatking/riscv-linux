@@ -19,6 +19,7 @@
 #define CSR_STR(x) __ASM_STR(x)
 
 extern unsigned long riscv_vsize;
+bool rvv_first_use_handler(struct pt_regs *regs);
 
 static __always_inline bool has_vector(void)
 {
@@ -138,6 +139,7 @@ static inline void vstate_restore(struct task_struct *task,
 struct pt_regs;
 
 static __always_inline bool has_vector(void) { return false; }
+static inline bool rvv_first_use_handler(struct pt_regs *regs) { return false; }
 static inline bool vstate_query(struct pt_regs *regs) { return false; }
 #define riscv_vsize (0)
 #define vstate_save(task, regs)		do {} while (0)
