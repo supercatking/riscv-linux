@@ -162,6 +162,16 @@ void kvm_riscv_vcpu_trap_redirect(struct kvm_vcpu *vcpu,
 	vcpu->arch.guest_context.sepc = csr_read(CSR_VSTVEC);
 }
 
+static int vcpu_trap_redirect_vs(struct kvm_vcpu *vcpu,
+				 struct kvm_cpu_trap *trap)
+{
+	/* set up trap handler and trap info when it gets back to vs */
+	kvm_riscv_vcpu_trap_redirect(vcpu, trap);
+	/* return to s-mode by setting vcpu's SPP */
+	vcpu->arch.guest_context.sstatus |= SR_SPP;
+	return 1;
+}
+
 /*
  * Return > 0 to return to guest, < 0 on error, 0 (and set exit_reason) on
  * proper exit to userspace.
@@ -179,6 +189,10 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	ret = -EFAULT;
 	run->exit_reason = KVM_EXIT_UNKNOWN;
 	switch (trap->scause) {
+	case EXC_INST_ILLEGAL:
+		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
+			ret = vcpu_trap_redirect_vs(vcpu, trap);
+		break;
 	case EXC_VIRTUAL_INST_FAULT:
 		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
 			ret = kvm_riscv_vcpu_virtual_insn(vcpu, run, trap);
@@ -206,6 +220,7 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 			vcpu->arch.guest_context.hstatus);
 		kvm_err("SCAUSE=0x%lx STVAL=0x%lx HTVAL=0x%lx HTINST=0x%lx\n",
 			trap->scause, trap->stval, trap->htval, trap->htinst);
+		asm volatile ("ebreak\n\t");
 	}
 
 	return ret;
