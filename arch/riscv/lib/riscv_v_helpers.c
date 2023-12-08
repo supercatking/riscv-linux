@@ -3,9 +3,13 @@
  * Copyright (C) 2023 SiFive
  * Author: Andy Chiu <andy.chiu@sifive.com>
  */
+#ifndef __NO_FORTIFY
+# define __NO_FORTIFY
+#endif
 #include <linux/linkage.h>
 #include <asm/asm.h>
 
+#include <asm/string.h>
 #include <asm/vector.h>
 #include <asm/simd.h>
 
@@ -43,3 +47,25 @@ fallback:
 	return fallback_scalar_usercopy(dst, src, n);
 }
 #endif
+
+#define V_OPT_TEMPLATE3(prefix, type_r, type_0, type_1)				\
+extern type_r __asm_##prefix##_vector(type_0, type_1, size_t n);		\
+type_r prefix(type_0 a0, type_1 a1, size_t n)					\
+{										\
+	type_r ret;								\
+	if (has_vector() && may_use_simd() &&					\
+	    n > riscv_v_##prefix##_threshold) {					\
+		kernel_vector_begin();						\
+		ret = __asm_##prefix##_vector(a0, a1, n);			\
+		kernel_vector_end();						\
+		return ret;							\
+	}									\
+	return __##prefix(a0, a1, n);						\
+}
+
+static size_t riscv_v_memset_threshold = CONFIG_RISCV_ISA_V_MEMSET_THRESHOLD;
+V_OPT_TEMPLATE3(memset, void *, void*, int)
+static size_t riscv_v_memcpy_threshold = CONFIG_RISCV_ISA_V_MEMCPY_THRESHOLD;
+V_OPT_TEMPLATE3(memcpy, void *, void*, const void *)
+static size_t riscv_v_memmove_threshold = CONFIG_RISCV_ISA_V_MEMMOVE_THRESHOLD;
+V_OPT_TEMPLATE3(memmove, void *, void*, const void *)

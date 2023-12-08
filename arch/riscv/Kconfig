@@ -535,6 +535,30 @@ config RISCV_ISA_V_UCOPY_THRESHOLD
 	  Prefer using vectorized copy_to_user()/copy_from_user() when the
 	  workload size exceeds this value.
 
+config RISCV_ISA_V_MEMSET_THRESHOLD
+	int "Threshold size for vectorized memset()"
+	depends on RISCV_ISA_V
+	default 1280
+	help
+	  Prefer using vectorized memset() when the workload size exceeds this
+	  value.
+
+config RISCV_ISA_V_MEMCPY_THRESHOLD
+	int "Threshold size for vectorized memcpy()"
+	depends on RISCV_ISA_V
+	default 768
+	help
+	  Prefer using vectorized memcpy() when the workload size exceeds this
+	  value.
+
+config RISCV_ISA_V_MEMMOVE_THRESHOLD
+	int "Threshold size for vectorized memmove()"
+	depends on RISCV_ISA_V
+	default 512
+	help
+	  Prefer using vectorized memmove() when the workload size exceeds this
+	  value.
+
 config RISCV_ISA_V_PREEMPTIVE
 	bool "Run kernel-mode Vector with kernel preemption"
 	depends on PREEMPTION
