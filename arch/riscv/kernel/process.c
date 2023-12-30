@@ -152,6 +152,8 @@ void start_thread(struct pt_regs *regs, unsigned long pc,
 	else
 		regs->status |= SR_UXL_64;
 #endif
+	if (riscv_cpu_has_extension_unlikely(smp_processor_id(), RISCV_ISA_EXT_ZICBOZ))
+		current->thread_info.envcfg = ENVCFG_CBZE;
 }
 
 void flush_thread(void)
