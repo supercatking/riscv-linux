@@ -179,7 +179,6 @@ struct i2s_dev {
 	u32 i2s_div_num;
 	bool playback_active;
 	bool capture_active;
-	u32 eswin_plat;
 };
 
 static const struct snd_pcm_hardware pcm_hardware = {
