@@ -382,7 +382,7 @@ bool handle_user_cfi_violation(struct pt_regs *regs)
 	unsigned long tval = csr_read(CSR_TVAL);
 
 	if (((tval == CFI_TVAL_FCFI_CODE) && cpu_supports_indirect_br_lp_instr()) ||
-		((tval == CFI_TVAL_BCFI_CODE) && cpu_supports_shadow_stack())) {
+	    ((tval == CFI_TVAL_BCFI_CODE) && cpu_supports_shadow_stack())) {
 		if (likely(!is_cfi_audit_enabled(current))) {
 			print_shadow_stack_btrace(regs);
 			do_trap_error(regs, SIGSEGV, SEGV_CPERR, regs->epc,
@@ -391,6 +391,7 @@ bool handle_user_cfi_violation(struct pt_regs *regs)
 		else
 			regs->epc += 4; /* advance epc by 4 and ignore cfi violation */
 
+		csr_clear(CSR_STATUS, SR_ELP);
 		ret = true;
 	}
 
@@ -408,12 +409,18 @@ bool handle_user_cfi_violation(struct pt_regs *regs)
 asmlinkage __visible __trap_section void do_trap_software_check(struct pt_regs *regs)
 {
 	if (user_mode(regs)) {
+		irqentry_enter_from_user_mode(regs);
+
 		/* not a cfi violation, then merge into flow of unknown trap handler */
 		if (!handle_user_cfi_violation(regs))
 			do_trap_unknown(regs);
+
+		irqentry_exit_to_user_mode(regs);
 	} else {
+		irqentry_state_t state = irqentry_nmi_enter(regs);
 		/* sw check exception coming from kernel is a bug in kernel */
 		die(regs, "Kernel BUG");
+		irqentry_nmi_exit(regs, state);
 	}
 }
 
