@@ -152,9 +152,7 @@ static long eswin_fan_control_get_fan_rpm(struct eswin_fan_control_data *ctl)
 
 	ctl->wait_flag = false;
 	period = pwm_get_period(ctl->pwm);
-	timeout = TIMEOUT(period);
-	if(!timeout)
-		timeout = TIMEOUT(ctl->min_period);
+	timeout = msecs_to_jiffies(1500);
 
 	val = fan_ioread(REG_FAN_INT, ctl);
 	val = val | 0x1;
